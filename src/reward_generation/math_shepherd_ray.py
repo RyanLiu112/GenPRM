@@ -1,5 +1,9 @@
 # math_shepherd_ray.py
 
+import ssl
+context = ssl.create_default_context()
+context.check_hostname = False
+
 import argparse
 import copy
 import json

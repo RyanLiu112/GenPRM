@@ -73,7 +73,7 @@ class VLLMRemoteCaller:
             "echo": False,
         }
         try:
-            response = requests.post(self.args.worker_addr + "/worker_generate", headers=headers, json=gen_params, stream=True)
+            response = requests.post(self.args.worker_addr + "/worker_generate", headers=headers, json=gen_params, stream=True, verify=False)
             results = response.json()
         except Exception as e:
             print(f'Error in _generate_fastchat: {e}')

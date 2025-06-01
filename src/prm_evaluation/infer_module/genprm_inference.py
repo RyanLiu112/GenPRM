@@ -66,12 +66,16 @@ class CodeExecutor:
 
 class GenPRM:
     def __init__(self, model_path, tensor_parallel_size):
+        if tensor_parallel_size > 1:
+            os.environ['VLLM_WORKER_MULTIPROC_METHOD'] = 'spawn'
+
         # Load the model and tokenizer
         timestamped_print(f"Loading model from {model_path}", level="INFO")
         self.model = LLM(
             model=model_path,
             tensor_parallel_size=tensor_parallel_size,
-            enable_chunked_prefill=True
+            enable_chunked_prefill=True,
+            max_model_len=16384
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         timestamped_print(f"GenPRM loaded successfully", level="INFO")

@@ -1,12 +1,13 @@
 .DS_Store
 /.idea
 
-# src/prm_evaluation/policy_refine.py
-src/prm_evaluation/prm_critique.py
-# src/prm_evaluation/prm_evaluate.py
-# src/rationale_generation/process.py
-# src/reward_generation/math_shepherd_ray.py
-# src/reward_generation/math_shepherd_utils.py
-src/utils/infer_fns.py
-# src/utils/llm_utils.py
-src/utils/rm_call.py
+last_run_prepared
+wandb
+src/_*
+src/.ipynb_checkpoints
+src/data
+src/example
+src/logs_fastchat
+src/prm_training
+src/split_input
+*.ipynb

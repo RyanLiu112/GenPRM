@@ -1,15 +1,3 @@
-#!/bin/bash
-
-# Initialize environment
-source $HOME/.bashrc
-# unset http_proxy; unset https_proxy; unset HTTP_PROXY; unset HTTPS_PROXY
-NEW_HOME=/cpfs02/user/liurunze
-eval "$(${NEW_HOME}/miniforge3/bin/conda shell.bash hook)"
-
-which conda
-conda activate GenPRM
-which python
-
 # Default arguments
 LM=models--Qwen--Qwen2.5-Math-7B-Instruct
 RM=dummy
@@ -116,7 +104,10 @@ echo "eager: $eager, batch_size: $batch_size, max_time: $max_time, n_gpus: $n_gp
 POLICY_MODEL_PATH=${NEW_HOME}/hf_models/${LM}
 VALUE_MODEL_PATH=${NEW_HOME}/hf_models/${RM}
 
-export PYTHONPATH=${NEW_HOME}/main_branch/GenPRM
+SCRIPT_FULL_PATH="$(readlink -f "$0")"
+SCRIPT_DIR="$(dirname "$SCRIPT_FULL_PATH")"
+PARENT_DIR_OF_SCRIPT_DIR="$(dirname "$SCRIPT_DIR")"
+export PYTHONPATH="${PARENT_DIR_OF_SCRIPT_DIR}"
 cd ${PYTHONPATH}
 
 export CUDA_VISIBLE_DEVICES=0
@@ -170,7 +161,7 @@ fi
 
 for split in train; do
     cnt=0
-    if [ "$loop" == "0" ]; then
+    if [ "$loop" == "1" ]; then
         echo "Running ..."
 
         # echo "Running $method evaluation original command ..."
@@ -179,7 +170,7 @@ for split in train; do
         echo "Processing data_name: ${split}"
         echo "========================================"
         
-        python reward_generation/math_shepherd/math_shepherd_ray.py \
+        python reward_generation/math_shepherd_ray.py \
 			--model_path "$POLICY_MODEL_PATH" \
 			--split $split \
 			--data_name $data_name \
