@@ -4,10 +4,11 @@
 last_run_prepared
 wandb
 src/_*
-src/.ipynb_checkpoints
+.ipynb_checkpoints
 src/data
 src/example
 src/logs_fastchat
 src/prm_training
 src/split_input
 *.ipynb
+__pycache__
