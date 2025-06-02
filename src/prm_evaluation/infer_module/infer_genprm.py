@@ -179,7 +179,7 @@ class Reward_Service:
 
                 cur_time += 1
                 new_prompts = []
-                if texts_2[0].endswith('</output>\n'):
+                if texts_2[0].endswith('</output>\n') or cur_time >= time_limit:
                     texts_2[0] = in_nodes[0] + texts_2[0]
                     request_results_2.choices[0].text = texts_2[0]
                     out_nodes.append(texts_2[0])

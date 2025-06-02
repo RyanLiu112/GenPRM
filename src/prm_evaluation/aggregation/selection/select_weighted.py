@@ -70,4 +70,4 @@ def select_function(
 	)
     token_cost = token_cost_policy + token_cost_reward
     
-    return args.prm_strategy, select_correctness, token_cost
+    return f"weighted_{args.prm_strategy}", select_correctness, token_cost
