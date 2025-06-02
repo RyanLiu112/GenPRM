@@ -29,7 +29,35 @@ def get_service(model_path: str = None, url: str = None) -> Reward_Service:
         timestamped_print("MODEL: Model loaded successfully via get_service.")
     return _cached_service
 
-@register_processor
+@register_processor("check_finish")
+def check_finish(output_filepath: str) -> bool:
+    try:
+        record = load_json(output_filepath)
+    except Exception as e:
+        timestamped_print(f"Error loading JSON file {output_filepath}: {e}", "ERROR")
+        return False
+    field_specs = {
+        'policy_responses': list,
+        'steps': list,
+        'correctness': list,
+        'rewards': list,
+        'conversations': list
+    }
+    lengths = {}
+    for field in field_specs.keys():
+        lengths[field] = len(record[field])
+    
+    unique_lengths = set(lengths.values())
+    
+    if len(unique_lengths) > 1:
+        timestamped_print("Field length mismatch:", "ERROR")
+        for field, length in lengths.items():
+            timestamped_print(f"  - {field}: {length}", "ERROR")
+        return False
+    
+    return True
+
+@register_processor("process")
 def process_file(args) -> None:
     """
     input_filepath: str, 
@@ -46,12 +74,37 @@ def process_file(args) -> None:
     verify: bool,
     execute: bool,
     """
-    data = load_json(args.input_filepath)
+    # Load existing data or initialize new structure
+    if os.path.exists(args.output_filepath):
+        try:
+            data = load_json(args.output_filepath)
+        except Exception as e:
+            data = load_json(args.input_filepath)
+            data['steps'] = []
+            data['conversations'] = []
+            data['rewards'] = []
+            timestamped_print("Error loading existing file, starting fresh from input file.", "ERROR")
+        
+        timestamped_print(f"Resuming processing from existing file: {args.output_filepath}", "WARNING")
+    else:
+        data = load_json(args.input_filepath)
+        data['steps'] = []
+        data['conversations'] = []
+        data['rewards'] = []
+        timestamped_print(f"Starting new processing from: {args.input_filepath}")
+
     reward_service = get_service(model_path=args.model_path, url=args.model_url)
-    data['steps'] = []
-    data['conversations'] = []
-    data['rewards'] = []
-    for policy_response in data['policy_responses']:
+    fields = [
+        len(data['policy_responses']),
+        len(data['steps']),
+        len(data['correctness']),
+        len(data['rewards']),
+        len(data['conversations'])
+    ]
+    min_len = min(fields)
+    for idd, policy_response in enumerate(data['policy_responses']):
+        if idd < min_len:
+            continue
         steps = policy_response.split('\n\n')
         data['steps'].append(steps)
         steps[0] = data['problem'] + steps[0]

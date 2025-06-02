@@ -118,18 +118,32 @@ def run_infer(args: argparse.Namespace):
 
         if os.path.exists(save_path):
             if not is_json_file_empty(save_path):
-                timestamped_print(f"Skip: File {save_path} already exists and is not empty.")
-                continue
-            file_modification_time = os.path.getmtime(save_path)
-            current_time = time.time()
-            if (current_time - file_modification_time) > TIME_LIMIT:
-                timestamped_print(f"Warning: File {save_path} exists and its modification time exceeds TIME_LIMIT. Will attempt to overwrite.", 'WARNING')
+                # Check finish
+                if framework.register.get_processor("check_finish") is not None:
+                    if framework.register.get_processor("check_finish")(save_path):
+                        timestamped_print(f"Skip: File {save_path} already processed successfully.")
+                        continue
+                    else:
+                        timestamped_print(f"Warning: File {save_path} exists but is not marked as finished. Will continue.", 'WARNING')
+                else:
+                    timestamped_print(f"Skip: File {save_path} already exists and is not empty.")
+                    continue
             else:
-                timestamped_print(f"Skip: File {save_path} already exists and is within TIME_LIMIT.")
-                continue
+                # Check if the file modification time exceeds TIME_LIMIT
+                file_modification_time = os.path.getmtime(save_path)
+                current_time = time.time()
+                if (current_time - file_modification_time) > TIME_LIMIT:
+                    timestamped_print(f"Warning: File {save_path} exists and its modification time exceeds TIME_LIMIT. Will attempt to overwrite.", 'WARNING')
+                else:
+                    timestamped_print(f"Skip: File {save_path} already exists and is within TIME_LIMIT.")
+                    continue
         else:
             timestamped_print(f"Info: Target file {save_path} does not exist. Will be created.")
-            pass
+            try:
+                with open(save_path, 'w') as f:
+                    pass
+            except Exception as e:
+                timestamped_print(f"Create file error: {str(e)}", 'ERROR')
 
         try:
             # Create a thread for the heartbeat worker
@@ -142,7 +156,7 @@ def run_infer(args: argparse.Namespace):
             # Run the inference process
             args.input_filepath = data_path
             args.output_filepath = save_path
-            framework.register._the_user_function(args)
+            framework.register.get_processor("process")(args)
 
             timestamped_print(f"Processing {data_path} completed successfully.", 'INFO')
 

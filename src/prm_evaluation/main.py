@@ -36,10 +36,10 @@ def parse_args():
     parser.add_argument("--max_tokens_per_step", type=int, default=512, help="Maximum tokens per step for beam search.")
     parser.add_argument("--stop_sequences_beam", type=str, default="\n\n", help="Stop sequences for beam search.")
 
-
     parser.add_argument(
         "--process_module",
         type=str,
+        nargs='+',
         required=True,
         help="Path to the user's processor module (e.g., 'user_logic.my_test_processor')."
     )
@@ -51,8 +51,9 @@ def main():
     print_args(args, program_name="Main Data Processor", version="1.0")
     try:
         timestamped_print(f"Attempting to import processor module: {args.process_module}")
-        importlib.import_module(args.process_module)
-        timestamped_print(f"Successfully imported '{args.process_module}'.")
+        for module_name in args.process_module:
+            importlib.import_module(module_name)
+            timestamped_print(f"Successfully imported '{module_name}'.")
     except ImportError as e:
         timestamped_print(f"ERROR: Could not import processor module '{args.process_module}'. Make sure it's in PYTHONPATH or a valid path. Details: {e}", 'ERROR')
         sys.exit(1)

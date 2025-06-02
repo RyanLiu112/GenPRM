@@ -29,7 +29,7 @@ def get_llm_service(model_path: str = None, url: str = None) -> LLM_Service:
         timestamped_print("MODEL: Model loaded successfully via get_llm_service.")
     return _cached_llm_service
 
-@register_processor
+@register_processor("process")
 def process_file(args) -> None:
     """
     input_filepath: str, 
