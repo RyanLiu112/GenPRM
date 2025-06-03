@@ -17,6 +17,7 @@ def parse_args():
     parser.add_argument("--model_path", type=str, help="Path to the model.")
     parser.add_argument("--model_url", type=str, help="URL of deployed model.")
     parser.add_argument("--reward_path", type=str, help="Path to the reward model.")
+    parser.add_argument("--reward_url", type=str, help="URL of reward model.")
     parser.add_argument("--store_type", type=str, choices=['file', 'folder'], default='file', help="Type of data storage.")
     # policy inference
     parser.add_argument("--num", type=int, default=1)
@@ -30,6 +31,15 @@ def parse_args():
     parser.add_argument("--analyze", action='store_true', help='analyze or not')
     parser.add_argument("--verify", action='store_true', help='verify or not')
     parser.add_argument("--execute", action='store_true', help='execute or not')
+    # critique-refine specification
+    parser.add_argument("--critique_type", type=str, required=True, help="`genprm` or `self`")
+    parser.add_argument("--critique_num", type=int, default=1)
+    parser.add_argument("--critique_temperature", type=float, default=0.7)
+    parser.add_argument("--critique_top_k", type=int, default=-1)
+    parser.add_argument("--critique_top_p", type=float, default=1)
+    parser.add_argument("--critique_max_tokens", type=int, default=16384)
+    parser.add_argument("--critique_system_prompt", type=str, default="You are a helpful assistant.", help="System prompt for the model.")
+    parser.add_argument("--critique_user_prompt_template", type=str, default="{problem}\nPlease reason step by step, and put your final answer within \\boxed{{}}.", help="User prompt template.")
     # Beam Search
     parser.add_argument("--beam_size", type=int, default=1, help="Number of beams for beam search.")
     parser.add_argument("--max_depth", type=int, default=1, help="Maximum depth for beam search.")
