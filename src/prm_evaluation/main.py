@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument("--verify", action='store_true', help='verify or not')
     parser.add_argument("--execute", action='store_true', help='execute or not')
     # critique-refine specification
-    parser.add_argument("--critique_type", type=str, required=True, help="`genprm` or `self`")
+    parser.add_argument("--critique_type", type=str, default='genprm', help="`genprm` or `self`")
     parser.add_argument("--critique_num", type=int, default=1)
     parser.add_argument("--critique_temperature", type=float, default=0.7)
     parser.add_argument("--critique_top_k", type=int, default=-1)
