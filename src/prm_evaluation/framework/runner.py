@@ -22,7 +22,7 @@ timestamped_print(f"Random seed initialized to: {random_seed}")
 
 os.environ['VLLM_USE_V1'] = '0'
 
-TIME_LIMIT = 300  # set time limit
+TIME_LIMIT = 60  # set time limit
 stop_event = threading.Event()
 
 def heart_beat_worker(file_path):
@@ -124,6 +124,14 @@ def run_infer(args: argparse.Namespace):
                         timestamped_print(f"Skip: File {save_path} already processed successfully.")
                         continue
                     else:
+                        # Check if the file modification time exceeds TIME_LIMIT
+                        file_modification_time = os.path.getmtime(save_path)
+                        current_time = time.time()
+                        if (current_time - file_modification_time) > TIME_LIMIT:
+                            timestamped_print(f"Warning: File {save_path} exists and its modification time exceeds TIME_LIMIT. Will attempt to overwrite.", 'WARNING')
+                        else:
+                            timestamped_print(f"Skip: File {save_path} already exists and is within TIME_LIMIT.")
+                            continue
                         timestamped_print(f"Warning: File {save_path} exists but is not marked as finished. Will continue.", 'WARNING')
                 else:
                     timestamped_print(f"Skip: File {save_path} already exists and is not empty.")

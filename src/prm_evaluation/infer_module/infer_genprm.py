@@ -113,6 +113,9 @@ class Reward_Service:
             )
             cprint(prompt_len, 'prompt_len')
             config['max_tokens'] -= prompt_len
+            if  config['max_tokens'] < 0:
+                timestamped_print('The max_tokens is not enough to generate the analyze prompt.', 'ERROR')
+                return "", 0.5
 
             cprint(prompt + analyze_start, f'paragraph {cur_step} request 1')
             request_results_1 = self.client.completions.create(
@@ -230,12 +233,127 @@ class Reward_Service:
         return logprobs
     
     def get_reward(self, request_results: Any):
-        '''calculate the reward score'''
-        out = request_results.choices[0]
-        generated_text = out.text
-        if 'boxed{Yes}' in generated_text:
-            return 1.0
-        elif 'boxed{No}' in generated_text:
-            return 0.0
+        """
+        Extracts the actual probabilities of "Yes" and "No" at the position
+        of the last occurring "Yes" or "No" token.
+
+        If one is found and the other is not in top_logprobs, the other's probability
+        is estimated as 1 - sum_of_top_logprobs_probabilities.
+
+        Returns:
+            A tuple (prob_yes, prob_no), or None if neither "Yes" nor "No" is found.
+            Probabilities are actual probabilities (0 to 1), not logprobs.
+            Elements in the tuple can be None if a probability could not be determined.
+        """
+        completion_result = request_results
+        choices = []
+        if hasattr(completion_result, 'choices'):
+            choices = completion_result.choices
+        elif isinstance(completion_result, dict) and 'choices' in completion_result:
+            choices = completion_result['choices']
         else:
+            # print("Error: 'choices' attribute or key not found in the input.")
             return 0.5
+
+        if not choices:
+            return 0.5
+
+        for choice_idx, choice_data in enumerate(choices): # Typically n=1, so one choice
+            logprobs_data = None
+            if hasattr(choice_data, 'logprobs'): logprobs_data = choice_data.logprobs
+            elif isinstance(choice_data, dict) and 'logprobs' in choice_data: logprobs_data = choice_data['logprobs']
+            if not logprobs_data: continue
+
+            tokens, token_logprobs_list, top_logprobs_list = [], [], []
+            if hasattr(logprobs_data, 'tokens'): tokens = logprobs_data.tokens
+            elif isinstance(logprobs_data, dict) and 'tokens' in logprobs_data: tokens = logprobs_data['tokens']
+            if hasattr(logprobs_data, 'token_logprobs'): token_logprobs_list = logprobs_data.token_logprobs
+            elif isinstance(logprobs_data, dict) and 'token_logprobs' in logprobs_data: token_logprobs_list = logprobs_data['token_logprobs']
+            if hasattr(logprobs_data, 'top_logprobs'): top_logprobs_list = logprobs_data.top_logprobs
+            elif isinstance(logprobs_data, dict) and 'top_logprobs' in logprobs_data: top_logprobs_list = logprobs_data['top_logprobs']
+
+            if not (tokens and token_logprobs_list and top_logprobs_list and \
+                    len(tokens) == len(token_logprobs_list) == len(top_logprobs_list)):
+                # print(f"Warning: Tokens/logprobs/top_logprobs missing or mismatched in choice {choice_idx}.")
+                continue
+
+            for i in range(len(tokens) - 1, -1, -1): # Iterate backwards
+                token_text_stripped = tokens[i].strip()
+
+                prob_yes_at_this_pos: Optional[float] = None
+                prob_no_at_this_pos: Optional[float] = None
+
+                if token_text_stripped == "Yes" or token_text_stripped == "No":
+                    actual_token_generated = token_text_stripped
+                    prob_actual_token = math.exp(token_logprobs_list[i])
+
+                    current_top_logprobs_dict: Dict[str, float] = top_logprobs_list[i]
+                    sum_probs_in_top_logprobs = 0.0
+
+                    found_yes_in_top = False
+                    found_no_in_top = False
+
+                    for top_token, top_logprob in current_top_logprobs_dict.items():
+                        top_token_stripped = top_token.strip()
+                        current_top_token_prob = math.exp(top_logprob)
+                        sum_probs_in_top_logprobs += current_top_token_prob
+
+                        if top_token_stripped == "Yes":
+                            prob_yes_at_this_pos = current_top_token_prob
+                            found_yes_in_top = True
+                        elif top_token_stripped == "No":
+                            prob_no_at_this_pos = current_top_token_prob
+                            found_no_in_top = True
+
+                    # Ensure the actually generated token's probability is correctly assigned
+                    if actual_token_generated == "Yes":
+                        prob_yes_at_this_pos = prob_actual_token
+                        found_yes_in_top = True # It was generated, so it's "found"
+                    elif actual_token_generated == "No":
+                        prob_no_at_this_pos = prob_actual_token
+                        found_no_in_top = True # It was generated
+
+                    # Estimate probability for the one not found in top_logprobs (if any)
+                    # This assumes that 1 - sum_probs_in_top_logprobs is the probability mass for "all other tokens"
+                    # And we are assigning this entire mass to "Yes" or "No" if it wasn't in top_logprobs.
+                    # This is a strong assumption.
+                    remaining_prob_mass = max(0.0, 1.0 - sum_probs_in_top_logprobs) # Ensure non-negative
+
+                    if not found_yes_in_top and actual_token_generated == "No": # We are looking for Yes's estimated prob
+                        # If "Yes" was not the generated token and not in top K, estimate it.
+                        # If "Yes" *was* the generated token, its prob is already set.
+                        prob_yes_at_this_pos = remaining_prob_mass
+
+                    if not found_no_in_top and actual_token_generated == "Yes": # We are looking for No's estimated prob
+                        prob_no_at_this_pos = remaining_prob_mass
+
+                    # If neither was generated nor in top-k, this estimation logic might assign remaining_prob_mass to both.
+                    # This part needs careful thought based on what "relative probability" truly means.
+                    # The current logic: if "Yes" was generated, its prob is known. If "No" wasn't in top-k, its prob is estimated.
+                    # If "No" was generated, its prob is known. If "Yes" wasn't in top-k, its prob is estimated.
+
+                    # Refined logic for estimation:
+                    # If "Yes" was generated, prob_yes_at_this_pos is its actual prob.
+                    #   If "No" was also in top_logprobs, prob_no_at_this_pos is set.
+                    #   If "No" was NOT in top_logprobs, estimate prob_no_at_this_pos = remaining_prob_mass
+                    # Symmetric for "No" being generated.
+
+                    if actual_token_generated == "Yes":
+                        if not found_no_in_top: # "No" was not in top_logprobs
+                            prob_no_at_this_pos = remaining_prob_mass
+                    elif actual_token_generated == "No":
+                        if not found_yes_in_top: # "Yes" was not in top_logprobs
+                            prob_yes_at_this_pos = remaining_prob_mass
+
+                    # Final check: if one is still None after generation and top-k search,
+                    # it means it wasn't generated, wasn't in top-k.
+                    # The above logic should have assigned remaining_prob_mass.
+                    # If for some reason one is still None (e.g. both Yes/No not in top_k and neither generated - which is impossible here)
+                    # we can assign remaining_prob_mass if the other is already set.
+                    # However, this case is complex if both are missing from top_k.
+                    # The most straightforward is what's done: actual prob for the generated one,
+                    # then lookup for the other in top_k, then estimate if not in top_k.
+
+                    return prob_yes_at_this_pos
+
+        return 0.5 # Neither "Yes" nor "No" found in any choice's tokens

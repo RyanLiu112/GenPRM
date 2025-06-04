@@ -136,7 +136,7 @@ def process_file(args) -> None:
     data['steps'] = []
     data['conversations'] = []
     data['rewards'] = []
-    for i in args.max_iterations:
+    for i in range(args.max_iterations):
         # critique
         policy_response = data['policy_responses'][-1]
         steps = policy_response.split('\n\n')
@@ -260,8 +260,7 @@ def process_file(args) -> None:
         data['policy_responses'] += llm_service.get_text(results)
         data['finish_reason'] += llm_service.get_finish_reason(results)
         data['correctness'] += [
-            check_correctness(response,  data['answer'])
-            for response in data['policy_responses']
+            check_correctness(data['policy_responses'][-1],  data['answer'])
         ]
         save_json(data, args.output_filepath)
     

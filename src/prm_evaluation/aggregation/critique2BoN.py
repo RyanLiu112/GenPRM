@@ -52,7 +52,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    print_args(args, program_name="Multi-Key Alignment Logic", version="1.2")
+    print_args(args, program_name="Multi-Key Alignment Logic with Last-Value Padding", version="1.3")
 
     loaded_datasets: List[Dataset] = []
     for input_dir_path in args.input_paths:
@@ -88,9 +88,8 @@ def main():
                 values_list = item.get(key_to_align)
                 if isinstance(values_list, list):
                     max_num_turns = max(max_num_turns, len(values_list))
-                elif values_list is not None: # Key exists but is not a list
+                elif values_list is not None:
                      timestamped_print(f"Warning: Dataset {dataset_idx}, Item {item_idx}, key '{key_to_align}' is not a list. Value: {str(values_list)[:100]}", "WARNING")
-
 
     if max_num_turns == 0:
         timestamped_print(f"No alignable list data found for keys {args.align_keys} in the first {num_data_points_to_align} items. Exiting.")
@@ -104,26 +103,29 @@ def main():
 
         for item_idx in tqdm(range(num_data_points_to_align), desc=f"Aligning items for turn_{turn_idx}", leave=False):
             output_data_point: Dict[str, Any] = {}
-            
-            # Copy other keys from the first dataset's item
-            # (assuming they are identical across datasets for this item_idx)
-            if loaded_datasets: # Should always be true if we reached here
+
+            if loaded_datasets:
                 base_item = loaded_datasets[0][item_idx]
                 for key, value in base_item.items():
                     if key not in args.align_keys:
                         output_data_point[key] = value
             
-            # Align the specified keys
             for key_to_align in args.align_keys:
                 aligned_list_for_key: List[Any] = []
                 for dataset in loaded_datasets:
-                    # dataset[item_idx] is safe due to num_data_points_to_align
                     item_data_for_key = dataset[item_idx].get(key_to_align)
                     
-                    if isinstance(item_data_for_key, list) and turn_idx < len(item_data_for_key):
-                        aligned_list_for_key.append(item_data_for_key[turn_idx])
-                    else:
-                        aligned_list_for_key.append(None) # Placeholder for missing data
+                    if isinstance(item_data_for_key, list):
+                        if turn_idx < len(item_data_for_key):
+                            # Current turn_idx is within the list's bounds
+                            aligned_list_for_key.append(item_data_for_key[turn_idx])
+                        elif item_data_for_key: # List is shorter than turn_idx, but not empty
+                            # Pad with the last element of this list
+                            aligned_list_for_key.append(item_data_for_key[-1])
+                        else: # List is empty
+                            aligned_list_for_key.append(None) # Or some other placeholder for empty lists
+                    else: # item_data_for_key is not a list (e.g., None or other type)
+                        aligned_list_for_key.append(None) # Placeholder for missing/invalid data
                 output_data_point[key_to_align] = aligned_list_for_key
             
             output_file_path = os.path.join(turn_output_dir, f"{item_idx}.json")

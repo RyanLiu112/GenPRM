@@ -107,7 +107,7 @@ def process_file(args) -> None:
             continue
         steps = policy_response.split('\n\n')
         data['steps'].append(steps)
-        steps[0] = data['problem'] + steps[0]
+        steps[0] = data['problem'] + '\n' + steps[0]
         if args.analyze or args.verify:
             messages = [
                 {'role': 'system', 'content': f'You are a math teacher. Your task is to review and critique the paragraphs in solution step by step.'}
