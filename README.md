@@ -40,6 +40,7 @@ We will release all code, model, and data, including:
 
 ## 🔔 News
 
+- **[2025-11-08]** 📢 GenPRM is accepted by AAAI 2026!
 - **[2025-04-24]** ✨ The full data synthesis code is available.
 - **[2025-04-14]** 📢 GenPRM is reported by [Synced (机器之心)](https://mp.weixin.qq.com/s/P2OPxTMzB6Zp8Rb3RN86wQ)!
 - **[2025-04-06]** ✨ The evaluation code and [GenPRM-32B](https://huggingface.co/GenPRM/GenPRM-32B) are available.
